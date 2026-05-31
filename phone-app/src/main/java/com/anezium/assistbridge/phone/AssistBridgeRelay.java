@@ -11,6 +11,7 @@ import com.example.cxrglobal.CXRLink;
 import com.example.cxrglobal.CxrDefs;
 import com.example.cxrglobal.callbacks.ICXRLinkCbk;
 import com.example.cxrglobal.callbacks.ICustomCmdCbk;
+import com.anezium.assistbridge.protocol.AssistBridgeProtocol;
 import com.rokid.cxr.Caps;
 
 import org.json.JSONObject;
@@ -50,8 +51,8 @@ final class AssistBridgeRelay {
     private static volatile String bootstrapState = "idle";
     private static volatile String lastStatus = "idle";
     private static volatile String lastSentPreview = "";
-    private static volatile JSONObject pendingMessage;
     private static volatile Runnable reconnectRunnable;
+    private static final RelayOutbox OUTBOX = new RelayOutbox();
     private static long reconnectDelayMs = RECONNECT_INITIAL_DELAY_MS;
 
     private AssistBridgeRelay() {
@@ -59,8 +60,13 @@ final class AssistBridgeRelay {
 
     static void startFromStoredToken(Context context) {
         Context safeContext = context.getApplicationContext();
-        String token = safeContext.getSharedPreferences(AssistBridgeProtocol.PREFS, Context.MODE_PRIVATE)
-                .getString(AssistBridgeProtocol.PREF_AUTH_TOKEN, "");
+        if (!TextUtils.isEmpty(authToken) && link != null) {
+            appContext = safeContext;
+            maybeBootstrap();
+            return;
+        }
+        String token = safeContext.getSharedPreferences(PhonePrefs.PREFS, Context.MODE_PRIVATE)
+                .getString(PhonePrefs.AUTH_TOKEN, "");
         if (!TextUtils.isEmpty(token)) {
             Log.i(TAG, "start from stored token");
             start(safeContext, token);
@@ -78,9 +84,9 @@ final class AssistBridgeRelay {
             return;
         }
 
-        safeContext.getSharedPreferences(AssistBridgeProtocol.PREFS, Context.MODE_PRIVATE)
+        safeContext.getSharedPreferences(PhonePrefs.PREFS, Context.MODE_PRIVATE)
                 .edit()
-                .putString(AssistBridgeProtocol.PREF_AUTH_TOKEN, token)
+                .putString(PhonePrefs.AUTH_TOKEN, token)
                 .apply();
         appContext = safeContext;
         authToken = token;
@@ -95,8 +101,8 @@ final class AssistBridgeRelay {
     static Snapshot snapshot(Context context) {
         if (TextUtils.isEmpty(authToken) && context != null) {
             authToken = context.getApplicationContext()
-                    .getSharedPreferences(AssistBridgeProtocol.PREFS, Context.MODE_PRIVATE)
-                    .getString(AssistBridgeProtocol.PREF_AUTH_TOKEN, "");
+                    .getSharedPreferences(PhonePrefs.PREFS, Context.MODE_PRIVATE)
+                    .getString(PhonePrefs.AUTH_TOKEN, "");
         }
         return new Snapshot(
                 !TextUtils.isEmpty(authToken),
@@ -117,21 +123,22 @@ final class AssistBridgeRelay {
         long now = System.currentTimeMillis();
         JSONObject json = new JSONObject();
         try {
-            json.put("version", AssistBridgeProtocol.PROTOCOL_VERSION);
-            json.put("type", "assistant_text");
-            json.put("source", "phone");
-            json.put("assistantPackage", packageName == null ? "" : packageName);
-            json.put("messageId", TextUtils.isEmpty(fingerprint) ? String.valueOf(now) : fingerprint);
-            json.put("text", text);
-            json.put("createdAt", now);
-            json.put("displayMs", AssistBridgeProtocol.displayDurationMs(text));
+            json.put(AssistBridgeProtocol.FIELD_VERSION, AssistBridgeProtocol.PROTOCOL_VERSION);
+            json.put(AssistBridgeProtocol.FIELD_TYPE, AssistBridgeProtocol.TYPE_ASSISTANT_TEXT);
+            json.put(AssistBridgeProtocol.FIELD_SOURCE, "phone");
+            json.put(AssistBridgeProtocol.FIELD_ASSISTANT_PACKAGE, packageName == null ? "" : packageName);
+            json.put(AssistBridgeProtocol.FIELD_MESSAGE_ID, TextUtils.isEmpty(fingerprint) ? String.valueOf(now) : fingerprint);
+            json.put(AssistBridgeProtocol.FIELD_TEXT, text);
+            json.put(AssistBridgeProtocol.FIELD_CREATED_AT, now);
+            json.put(AssistBridgeProtocol.FIELD_DISPLAY_MS, AssistBridgeProtocol.displayDurationMs(text));
+            json.put(AssistBridgeProtocol.FIELD_FONT_SIZE_SP, HudSettingsStore.fontSizeSp(context));
         } catch (Exception exception) {
             Log.w(TAG, "json build failed", exception);
             return;
         }
 
         if (!sendJson(AssistBridgeProtocol.KEY_EVENT, json)) {
-            pendingMessage = json;
+            OUTBOX.queue(json);
             Log.i(TAG, "assistant text queued");
         }
     }
@@ -151,19 +158,32 @@ final class AssistBridgeRelay {
         startFromStoredToken(context);
         JSONObject json = new JSONObject();
         try {
-            json.put("version", AssistBridgeProtocol.PROTOCOL_VERSION);
-            json.put("type", "open_accessibility_settings");
-            json.put("source", "phone");
-            json.put("targetPackage", AssistBridgeProtocol.CLIENT_PACKAGE);
+            json.put(AssistBridgeProtocol.FIELD_VERSION, AssistBridgeProtocol.PROTOCOL_VERSION);
+            json.put(AssistBridgeProtocol.FIELD_TYPE, AssistBridgeProtocol.TYPE_OPEN_ACCESSIBILITY_SETTINGS);
+            json.put(AssistBridgeProtocol.FIELD_SOURCE, "phone");
+            json.put(AssistBridgeProtocol.FIELD_TARGET_PACKAGE, AssistBridgeProtocol.CLIENT_PACKAGE);
         } catch (Exception exception) {
             Log.w(TAG, "json build failed", exception);
             return false;
         }
         boolean sent = sendJson(AssistBridgeProtocol.KEY_EVENT, json);
         if (!sent) {
-            pendingMessage = json;
+            OUTBOX.queue(json);
         }
         return sent;
+    }
+
+    static void sendHudSettings(Context context) {
+        if (context != null) {
+            appContext = context.getApplicationContext();
+        }
+        JSONObject json = buildHudSettingsJson(context);
+        if (json == null) {
+            return;
+        }
+        if (!sendJson(AssistBridgeProtocol.KEY_EVENT, json)) {
+            OUTBOX.queue(json);
+        }
     }
 
     private static void startOnMain(Context context, String token) {
@@ -259,11 +279,17 @@ final class AssistBridgeRelay {
             if (!AssistBridgeProtocol.KEY_COMMAND.equals(key)) {
                 return;
             }
-            String payloadText = payloadToText(payload);
-            if (!payloadText.contains("request_state")) {
-                return;
+            try {
+                String payloadText = payloadToText(payload);
+                JSONObject object = new JSONObject(payloadText);
+                if (!AssistBridgeProtocol.TYPE_REQUEST_STATE.equals(
+                        object.optString(AssistBridgeProtocol.FIELD_TYPE))) {
+                    return;
+                }
+                sendState();
+            } catch (Exception exception) {
+                Log.w(TAG, "command parse failed", exception);
             }
-            sendState();
         }
     };
 
@@ -286,6 +312,7 @@ final class AssistBridgeRelay {
                 bootstrapState = result;
                 lastStatus = result;
                 sendState();
+                sendHudSettings(context);
                 flushPending();
             }
         }, "AssistBridgeBootstrap");
@@ -295,12 +322,12 @@ final class AssistBridgeRelay {
     private static void sendState() {
         JSONObject json = new JSONObject();
         try {
-            json.put("version", AssistBridgeProtocol.PROTOCOL_VERSION);
-            json.put("type", "state");
-            json.put("source", "phone");
-            json.put("cxrConnected", cxrConnected);
-            json.put("glassConnected", glassConnected);
-            json.put("bootstrapState", bootstrapState);
+            json.put(AssistBridgeProtocol.FIELD_VERSION, AssistBridgeProtocol.PROTOCOL_VERSION);
+            json.put(AssistBridgeProtocol.FIELD_TYPE, AssistBridgeProtocol.TYPE_STATE);
+            json.put(AssistBridgeProtocol.FIELD_SOURCE, "phone");
+            json.put(AssistBridgeProtocol.FIELD_CXR_CONNECTED, cxrConnected);
+            json.put(AssistBridgeProtocol.FIELD_GLASS_CONNECTED, glassConnected);
+            json.put(AssistBridgeProtocol.FIELD_BOOTSTRAP_STATE, bootstrapState);
         } catch (Exception exception) {
             return;
         }
@@ -308,13 +335,32 @@ final class AssistBridgeRelay {
     }
 
     private static void flushPending() {
-        JSONObject pending = pendingMessage;
-        if (pending == null || !cxrConnected || !glassConnected) {
+        if (!cxrConnected || !glassConnected) {
             return;
         }
-        if (sendJson(AssistBridgeProtocol.KEY_EVENT, pending)) {
-            pendingMessage = null;
+        OUTBOX.flush(new RelayOutbox.Sender() {
+            @Override
+            public boolean send(JSONObject json) {
+                return sendJson(AssistBridgeProtocol.KEY_EVENT, json);
+            }
+        });
+    }
+
+    private static JSONObject buildHudSettingsJson(Context context) {
+        if (context == null) {
+            return null;
         }
+        JSONObject json = new JSONObject();
+        try {
+            json.put(AssistBridgeProtocol.FIELD_VERSION, AssistBridgeProtocol.PROTOCOL_VERSION);
+            json.put(AssistBridgeProtocol.FIELD_TYPE, AssistBridgeProtocol.TYPE_HUD_SETTINGS);
+            json.put(AssistBridgeProtocol.FIELD_SOURCE, "phone");
+            json.put(AssistBridgeProtocol.FIELD_FONT_SIZE_SP, HudSettingsStore.fontSizeSp(context));
+        } catch (Exception exception) {
+            Log.w(TAG, "json build failed", exception);
+            return null;
+        }
+        return json;
     }
 
     private static boolean sendJson(String key, JSONObject json) {
@@ -331,9 +377,12 @@ final class AssistBridgeRelay {
                 markSendUnavailable("send returned " + result, json);
                 return false;
             }
-            lastSentPreview = preview(json.optString("text", json.optString("type")));
-            lastStatus = "sent " + json.optString("type");
-            Log.i(TAG, "sent " + json.optString("type") + " result=" + result);
+            lastSentPreview = preview(json.optString(
+                    AssistBridgeProtocol.FIELD_TEXT,
+                    json.optString(AssistBridgeProtocol.FIELD_TYPE)
+            ));
+            lastStatus = "sent " + json.optString(AssistBridgeProtocol.FIELD_TYPE);
+            Log.i(TAG, "sent " + json.optString(AssistBridgeProtocol.FIELD_TYPE) + " result=" + result);
             return true;
         } catch (RuntimeException exception) {
             Log.w(TAG, "send failed", exception);
@@ -343,7 +392,7 @@ final class AssistBridgeRelay {
     }
 
     private static void markSendUnavailable(String reason, JSONObject json) {
-        Log.w(TAG, reason + " type=" + json.optString("type"));
+        Log.w(TAG, reason + " type=" + json.optString(AssistBridgeProtocol.FIELD_TYPE));
         lastStatus = "send queued";
         if (!cxrConnected || link == null || !link.isServiceConnected()) {
             scheduleReconnect(reason);

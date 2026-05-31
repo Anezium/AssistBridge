@@ -19,8 +19,8 @@ android {
         applicationId = "com.anezium.assistbridge.phone"
         minSdk = 31
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
         manifestPlaceholders["debugRelayExported"] = "false"
     }
@@ -44,6 +44,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":protocol"))
     implementation(project(":cxrglobal-lib"))
     implementation("com.rokid.cxr:client-l:1.0.1")
     implementation("androidx.core:core:1.18.0")

@@ -25,6 +25,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.anezium.assistbridge.protocol.HudTextSize;
+
 import java.text.DateFormat;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +48,7 @@ public final class MainActivity extends Activity {
     private final android.os.Handler refreshHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private TextView statusView;
     private TextView relayView;
+    private TextView fontSizeValueView;
     private TextView metaView;
     private TextView captureView;
     private Button relayButton;
@@ -108,32 +111,28 @@ public final class MainActivity extends Activity {
 
     private View buildContentView() {
         int padding = dp(18);
+        ScrollView page = new ScrollView(this);
+        page.setFillViewport(false);
+        page.setBackgroundColor(BG);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(padding, padding + statusBarHeight(), padding, padding);
-        root.setBackgroundColor(BG);
+        page.addView(root, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
 
-        TextView title = label("AssistBridge", 27, TEXT, Typeface.BOLD);
+        TextView title = label("AssistBridge", 30, TEXT, Typeface.BOLD);
+        title.setPadding(0, 0, 0, dp(8));
         root.addView(title, matchWrap());
 
         statusView = new TextView(this);
-        styleInfoBlock(statusView);
-        root.addView(sectionLabel("Phone capture"), matchWrapWithTopMargin(22));
-        root.addView(statusView, matchWrapWithTopMargin(6));
-
         relayView = new TextView(this);
-        styleInfoBlock(relayView);
-        root.addView(sectionLabel("Glasses relay"), matchWrapWithTopMargin(12));
-        root.addView(relayView, matchWrapWithTopMargin(6));
+        root.addView(statusPanel("Phone capture", statusView), matchWrapWithTopMargin(10));
+        root.addView(statusPanel("Glasses relay", relayView), matchWrapWithTopMargin(8));
 
-        Button accessibilityButton = secondaryButton("Open phone accessibility");
-        accessibilityButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                openAccessibilitySettings();
-            }
-        });
-        root.addView(accessibilityButton, matchWrapWithTopMargin(14));
+        root.addView(sectionLabel("Controls"), matchWrapWithTopMargin(18));
 
         relayButton = primaryButton("Authorize Hi Rokid");
         relayButton.setOnClickListener(new View.OnClickListener() {
@@ -142,9 +141,17 @@ public final class MainActivity extends Activity {
                 requestRokidAuthorization();
             }
         });
-        root.addView(relayButton, matchWrapWithTopMargin(8));
+        root.addView(relayButton, matchWrapWithTopMargin(6));
 
-        Button glassesAccessibilityButton = secondaryButton("Open glasses accessibility");
+        Button accessibilityButton = secondaryButton("Phone accessibility");
+        accessibilityButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                openAccessibilitySettings();
+            }
+        });
+
+        Button glassesAccessibilityButton = secondaryButton("Glasses accessibility");
         glassesAccessibilityButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -155,7 +162,6 @@ public final class MainActivity extends Activity {
                 }
             }
         });
-        root.addView(glassesAccessibilityButton, matchWrapWithTopMargin(8));
 
         Button assistantButton = secondaryButton("Open assistant");
         assistantButton.setOnClickListener(new View.OnClickListener() {
@@ -164,12 +170,29 @@ public final class MainActivity extends Activity {
                 openAssistant();
             }
         });
-        root.addView(assistantButton, matchWrapWithTopMargin(8));
 
-        LinearLayout utilityRow = new LinearLayout(this);
-        utilityRow.setOrientation(LinearLayout.HORIZONTAL);
-        utilityRow.setGravity(Gravity.CENTER);
+        LinearLayout actionRow = horizontalRow();
+        actionRow.addView(assistantButton, weightedRowItem());
+        actionRow.addView(glassesAccessibilityButton, weightedRowItemWithLeftMargin());
+        root.addView(actionRow, matchWrapWithTopMargin(8));
 
+        LinearLayout setupRow = horizontalRow();
+        setupRow.addView(accessibilityButton, weightedRowItem());
+        root.addView(setupRow, matchWrapWithTopMargin(8));
+
+        root.addView(buildHudControl(), matchWrapWithTopMargin(16));
+
+        LinearLayout captureHeader = horizontalRow();
+        LinearLayout captureTitle = new LinearLayout(this);
+        captureTitle.setOrientation(LinearLayout.VERTICAL);
+        captureTitle.setGravity(Gravity.CENTER_VERTICAL);
+        captureTitle.addView(sectionLabel("Latest capture"), matchWrap());
+        metaView = label("NONE", 12, MUTED, Typeface.BOLD);
+        metaView.setPadding(0, dp(4), 0, 0);
+        captureTitle.addView(metaView, matchWrap());
+        captureHeader.addView(captureTitle, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        LinearLayout utilityRow = horizontalRow();
         Button copyButton = rowButton("Copy");
         copyButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -187,33 +210,20 @@ public final class MainActivity extends Activity {
             }
         });
         utilityRow.addView(clearButton, weightedRowItemWithLeftMargin());
-        root.addView(utilityRow, matchWrapWithTopMargin(8));
-
-        metaView = new TextView(this);
-        metaView.setTextSize(12);
-        metaView.setTextColor(MUTED);
-        metaView.setTypeface(Typeface.DEFAULT_BOLD);
-        metaView.setPadding(0, dp(16), 0, dp(7));
-        root.addView(metaView, matchWrap());
+        captureHeader.addView(utilityRow, new LinearLayout.LayoutParams(dp(176), LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(captureHeader, matchWrapWithTopMargin(18));
 
         captureView = new TextView(this);
-        captureView.setTextSize(17);
+        captureView.setTextSize(16);
         captureView.setTextColor(TEXT);
         captureView.setLineSpacing(dp(2), 1.08f);
         captureView.setTextIsSelectable(true);
-        captureView.setPadding(dp(15), dp(14), dp(15), dp(14));
+        captureView.setMinHeight(dp(260));
+        captureView.setPadding(dp(14), dp(13), dp(14), dp(13));
         captureView.setBackground(roundRect(SURFACE, BORDER, 8));
+        root.addView(captureView, matchWrapWithTopMargin(8));
 
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.addView(captureView, matchWrap());
-        scrollView.setFillViewport(true);
-        root.addView(scrollView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-        ));
-
-        return root;
+        return page;
     }
 
     private TextView label(String text, int sp, int color, int style) {
@@ -232,12 +242,67 @@ public final class MainActivity extends Activity {
         return view;
     }
 
-    private void styleInfoBlock(TextView view) {
-        view.setTextSize(15);
-        view.setTextColor(TEXT);
-        view.setLineSpacing(dp(1), 1.05f);
-        view.setPadding(dp(13), dp(11), dp(13), dp(11));
-        view.setBackground(roundRect(SURFACE, BORDER, 8));
+    private LinearLayout statusPanel(String title, TextView valueView) {
+        LinearLayout panel = panel();
+        panel.addView(sectionLabel(title), matchWrap());
+        valueView.setTextSize(16);
+        valueView.setTextColor(TEXT);
+        valueView.setLineSpacing(dp(1), 1.05f);
+        valueView.setPadding(0, dp(7), 0, 0);
+        panel.addView(valueView, matchWrap());
+        return panel;
+    }
+
+    private LinearLayout buildHudControl() {
+        LinearLayout panel = panel();
+        panel.setOrientation(LinearLayout.HORIZONTAL);
+        panel.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout labelColumn = new LinearLayout(this);
+        labelColumn.setOrientation(LinearLayout.VERTICAL);
+        labelColumn.setGravity(Gravity.CENTER_VERTICAL);
+        labelColumn.addView(sectionLabel("Glasses HUD"), matchWrap());
+
+        fontSizeValueView = label("", 18, TEXT, Typeface.BOLD);
+        fontSizeValueView.setPadding(0, dp(5), 0, 0);
+        labelColumn.addView(fontSizeValueView, matchWrap());
+        panel.addView(labelColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        Button decreaseFontButton = compactButton("-");
+        decreaseFontButton.setTextSize(21);
+        decreaseFontButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                adjustHudFontSize(-1.0f);
+            }
+        });
+        panel.addView(decreaseFontButton, squareRowItem());
+
+        Button increaseFontButton = compactButton("+");
+        increaseFontButton.setTextSize(21);
+        increaseFontButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                adjustHudFontSize(1.0f);
+            }
+        });
+        panel.addView(increaseFontButton, squareRowItemWithLeftMargin());
+        return panel;
+    }
+
+    private LinearLayout panel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(14), dp(12), dp(14), dp(12));
+        panel.setBackground(roundRect(SURFACE, BORDER, 8));
+        return panel;
+    }
+
+    private LinearLayout horizontalRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        return row;
     }
 
     private Button primaryButton(String label) {
@@ -274,6 +339,14 @@ public final class MainActivity extends Activity {
         return button;
     }
 
+    private Button compactButton(String label) {
+        Button button = rowButton(label);
+        button.setMinHeight(dp(44));
+        button.setMinWidth(dp(48));
+        button.setPadding(0, 0, 0, dp(2));
+        return button;
+    }
+
     private void renderStatus() {
         boolean enabled = isAccessibilityServiceEnabled();
         boolean running = CaptureStore.isServiceRunning();
@@ -284,14 +357,14 @@ public final class MainActivity extends Activity {
 
         AssistBridgeRelay.Snapshot relay = AssistBridgeRelay.snapshot(this);
         String relayText = relay.hasToken
-                ? "Relay: " + (relay.cxrConnected ? "CXR-L ON" : "CXR-L waiting")
-                + " / " + (relay.glassConnected ? "glasses connected" : "glasses disconnected")
-                + " / " + relay.bootstrapState
+                ? (relay.cxrConnected ? "CXR-L ON" : "CXR-L waiting")
+                + " / " + (relay.glassConnected ? "connected" : "disconnected")
+                + "\n" + relay.bootstrapState
                 : "Relay: Hi Rokid authorization required";
         if (!relay.lastSentPreview.isEmpty()) {
-            relayText += "\nLast sent: " + relay.lastSentPreview;
+            relayText += "\nSent: " + relay.lastSentPreview;
         } else if (!relay.lastStatus.isEmpty()) {
-            relayText += "\nState: " + relay.lastStatus;
+            relayText += "\n" + relay.lastStatus;
         }
         relayView.setText(relayText);
         relayView.setTextColor(relay.hasToken ? TEXT : WARNING);
@@ -307,6 +380,30 @@ public final class MainActivity extends Activity {
                 }
             }
         });
+        renderHudFontSize();
+    }
+
+    private void renderHudFontSize() {
+        if (fontSizeValueView == null) {
+            return;
+        }
+        fontSizeValueView.setText("Font size: " + formatHudFontSize(HudSettingsStore.fontSizeSp(this)));
+        fontSizeValueView.setTextColor(TEXT);
+    }
+
+    private void adjustHudFontSize(float deltaSp) {
+        float current = HudSettingsStore.fontSizeSp(this);
+        float next = HudSettingsStore.setFontSizeSp(this, HudTextSize.clamp(current + deltaSp));
+        AssistBridgeRelay.sendHudSettings(this);
+        renderHudFontSize();
+        Toast.makeText(this, "Glasses font size " + formatHudFontSize(next), Toast.LENGTH_SHORT).show();
+    }
+
+    private String formatHudFontSize(float value) {
+        if (Math.abs(value - Math.round(value)) < 0.01f) {
+            return Math.round(value) + "sp";
+        }
+        return String.format(Locale.ROOT, "%.1fsp", value);
     }
 
     private void requestRokidAuthorization() {
@@ -348,15 +445,15 @@ public final class MainActivity extends Activity {
     private void renderSnapshot(CaptureSnapshot snapshot) {
         CaptureSnapshot safeSnapshot = snapshot == null ? CaptureSnapshot.EMPTY : snapshot;
         if (!safeSnapshot.hasText()) {
-            metaView.setText("LAST CAPTURE: NONE");
+            metaView.setText("None yet");
             captureView.setText("Waiting for visible Gemini text...");
             return;
         }
 
         String time = DateFormat.getTimeInstance(DateFormat.MEDIUM, Locale.getDefault())
                 .format(safeSnapshot.capturedAtMillis);
-        metaView.setText("LAST CAPTURE: " + time
-                + "  /  NODES " + safeSnapshot.nodeCount
+        metaView.setText(time
+                + "  /  " + safeSnapshot.nodeCount + " nodes"
                 + "  /  " + safeSnapshot.packageName);
         captureView.setText(safeSnapshot.text);
     }
@@ -505,6 +602,16 @@ public final class MainActivity extends Activity {
 
     private LinearLayout.LayoutParams weightedRowItemWithLeftMargin() {
         LinearLayout.LayoutParams params = weightedRowItem();
+        params.leftMargin = dp(8);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams squareRowItem() {
+        return new LinearLayout.LayoutParams(dp(56), LinearLayout.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams squareRowItemWithLeftMargin() {
+        LinearLayout.LayoutParams params = squareRowItem();
         params.leftMargin = dp(8);
         return params;
     }

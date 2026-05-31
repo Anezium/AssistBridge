@@ -1,6 +1,6 @@
-# AssistBridge v0.2.0
+# AssistBridge v0.3.0
 
-Initial public release of the AssistBridge phone-to-Rokid relay.
+Phone-side HUD controls and release-quality cleanup for the AssistBridge phone-to-Rokid relay.
 
 ## What's Included
 
@@ -10,11 +10,13 @@ Initial public release of the AssistBridge phone-to-Rokid relay.
 - Bundled glasses APK inside the phone APK for authorized CXR-L install / update.
 - Setup UI for phone and glasses accessibility services.
 - Popup controls: tap / OK / Back to dismiss, left / right swipe to scroll.
+- Phone-controlled glasses HUD font size, persisted on the glasses.
+- Refactored shared protocol constants and relay outbox handling.
 
 ## APKs
 
-- `AssistBridge-phone-v0.2.0.apk`
-- `AssistBridge-glasses-v0.2.0.apk`
+- `AssistBridge-phone-v0.3.0.apk`
+- `AssistBridge-glasses-v0.3.0.apk`
 
 Both APKs are debug-key signed for sideload testing.
 

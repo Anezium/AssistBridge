@@ -7,6 +7,7 @@ import android.util.Log;
 
 import com.example.cxrglobal.CXRLink;
 import com.example.cxrglobal.callbacks.IGlassAppCbk;
+import com.anezium.assistbridge.protocol.AssistBridgeProtocol;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -133,15 +134,15 @@ final class ClientBootstrap {
         if (assetInfo == null) {
             return false;
         }
-        String last = context.getSharedPreferences(AssistBridgeProtocol.PREFS, Context.MODE_PRIVATE)
-                .getString(AssistBridgeProtocol.PREF_CLIENT_APK_FINGERPRINT, null);
+        String last = context.getSharedPreferences(PhonePrefs.PREFS, Context.MODE_PRIVATE)
+                .getString(PhonePrefs.CLIENT_APK_FINGERPRINT, null);
         return !assetInfo.fingerprint().equals(last);
     }
 
     private void rememberInstalledClient(ClientAssetInfo assetInfo) {
-        context.getSharedPreferences(AssistBridgeProtocol.PREFS, Context.MODE_PRIVATE)
+        context.getSharedPreferences(PhonePrefs.PREFS, Context.MODE_PRIVATE)
                 .edit()
-                .putString(AssistBridgeProtocol.PREF_CLIENT_APK_FINGERPRINT, assetInfo.fingerprint())
+                .putString(PhonePrefs.CLIENT_APK_FINGERPRINT, assetInfo.fingerprint())
                 .apply();
     }
 

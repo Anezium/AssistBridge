@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AssistBridge"
+include(":protocol")
 include(":phone-app")
 include(":glasses-app")
 

@@ -40,7 +40,15 @@ public final class AssistBridgeAccessibilityService extends AccessibilityService
         }
 
         @Override
-            public void onConnectionChanged(String state) {
+        public void onConnectionChanged(String state) {
+        }
+
+        @Override
+        public void onSettingsChanged() {
+            AssistantHudView view = overlay;
+            if (view != null) {
+                view.refreshSettings();
+            }
         }
     };
 
@@ -155,8 +163,7 @@ public final class AssistBridgeAccessibilityService extends AccessibilityService
 
                 int screenWidth = getResources().getDisplayMetrics().widthPixels;
                 int screenHeight = getResources().getDisplayMetrics().heightPixels;
-                int popupWidth = Math.max(screenWidth - dp(20), (int) (screenWidth * 0.9f));
-                popupWidth = Math.min(popupWidth, screenWidth - dp(8));
+                int popupWidth = Math.min(screenWidth, AssistantHudView.popupWidthPx(AssistBridgeAccessibilityService.this));
                 view.showMessage(message, popupWidth, screenHeight);
 
                 if (overlayParams == null) {
@@ -170,7 +177,7 @@ public final class AssistBridgeAccessibilityService extends AccessibilityService
                             PixelFormat.TRANSLUCENT
                     );
                     overlayParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-                    overlayParams.y = dp(28);
+                    overlayParams.y = dp(18);
                     try {
                         wm.addView(view, overlayParams);
                     } catch (RuntimeException exception) {

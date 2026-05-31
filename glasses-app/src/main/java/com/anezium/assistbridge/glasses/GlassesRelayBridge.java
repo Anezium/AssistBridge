@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 
+import com.anezium.assistbridge.protocol.AssistBridgeProtocol;
 import com.rokid.cxr.CXRServiceBridge;
 import com.rokid.cxr.Caps;
 
@@ -20,6 +21,8 @@ final class GlassesRelayBridge {
         void onAssistantMessage(AssistantMessage message);
 
         void onConnectionChanged(String state);
+
+        void onSettingsChanged();
     }
 
     private static final String TAG = "AssistBridgeBridge";
@@ -79,9 +82,9 @@ final class GlassesRelayBridge {
     static void sendCommand(String type) {
         JSONObject object = new JSONObject();
         try {
-            object.put("version", AssistBridgeProtocol.PROTOCOL_VERSION);
-            object.put("type", type);
-            object.put("source", "glasses");
+            object.put(AssistBridgeProtocol.FIELD_VERSION, AssistBridgeProtocol.PROTOCOL_VERSION);
+            object.put(AssistBridgeProtocol.FIELD_TYPE, type);
+            object.put(AssistBridgeProtocol.FIELD_SOURCE, "glasses");
         } catch (Exception exception) {
             return;
         }
@@ -112,7 +115,7 @@ final class GlassesRelayBridge {
     }
 
     private static void requestState() {
-        sendCommand("request_state");
+        sendCommand(AssistBridgeProtocol.TYPE_REQUEST_STATE);
     }
 
     private static final CXRServiceBridge.StatusListener STATUS_LISTENER = new CXRServiceBridge.StatusListener() {
@@ -187,18 +190,23 @@ final class GlassesRelayBridge {
             return;
         }
 
-        String type = object.optString("type");
-        if ("state".equals(type)) {
-            setConnectionState(object.optBoolean("glassConnected") ? "connected" : "waiting");
+        String type = object.optString(AssistBridgeProtocol.FIELD_TYPE);
+        if (AssistBridgeProtocol.TYPE_STATE.equals(type)) {
+            setConnectionState(object.optBoolean(AssistBridgeProtocol.FIELD_GLASS_CONNECTED) ? "connected" : "waiting");
             return;
         }
-        if ("open_accessibility_settings".equals(type)) {
+        if (AssistBridgeProtocol.TYPE_OPEN_ACCESSIBILITY_SETTINGS.equals(type)) {
             openAccessibilitySettings();
             return;
         }
-        if (!"assistant_text".equals(type)) {
+        if (AssistBridgeProtocol.TYPE_HUD_SETTINGS.equals(type)) {
+            applyHudSettings(object);
             return;
         }
+        if (!AssistBridgeProtocol.TYPE_ASSISTANT_TEXT.equals(type)) {
+            return;
+        }
+        applyHudSettings(object);
 
         AssistantMessage message = AssistantMessage.fromJson(object);
         if (message.text.isEmpty()) {
@@ -224,6 +232,21 @@ final class GlassesRelayBridge {
         connectionState = state == null ? "unknown" : state;
         for (Listener localListener : LISTENERS) {
             localListener.onConnectionChanged(connectionState);
+        }
+    }
+
+    private static void applyHudSettings(JSONObject object) {
+        if (object == null || !object.has(AssistBridgeProtocol.FIELD_FONT_SIZE_SP)) {
+            return;
+        }
+        Context context = appContext;
+        if (context == null) {
+            return;
+        }
+        float value = (float) object.optDouble(AssistBridgeProtocol.FIELD_FONT_SIZE_SP, HudSettings.fontSizeSp(context));
+        HudSettings.setFontSizeSp(context, value);
+        for (Listener localListener : LISTENERS) {
+            localListener.onSettingsChanged();
         }
     }
 

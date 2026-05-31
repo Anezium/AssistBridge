@@ -48,6 +48,11 @@ public final class MainActivity extends Activity {
         public void onConnectionChanged(String state) {
             hudView.setConnectionState(state);
         }
+
+        @Override
+        public void onSettingsChanged() {
+            hudView.refreshSettings();
+        }
     };
 
     @Override
@@ -69,11 +74,11 @@ public final class MainActivity extends Activity {
             }
         });
         FrameLayout.LayoutParams hudParams = new FrameLayout.LayoutParams(
-                Math.max(dp(240), getResources().getDisplayMetrics().widthPixels - dp(20)),
+                AssistantHudView.popupWidthPx(this),
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.CENTER_HORIZONTAL
         );
-        hudParams.topMargin = dp(28);
+        hudParams.topMargin = dp(18);
         root.addView(hudView, hudParams);
         setupView = buildSetupView();
         root.addView(setupView, setupParams());
@@ -228,6 +233,7 @@ public final class MainActivity extends Activity {
 
         setupTitle = label("", 25, TEXT);
         setupBody = label("", 17, TEXT);
+
         setupButton = label("", 16, ACCENT);
         setupButton.setGravity(Gravity.CENTER);
         setupButton.setPadding(dp(10), dp(10), dp(10), dp(10));

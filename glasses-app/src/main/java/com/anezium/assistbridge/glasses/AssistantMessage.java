@@ -1,5 +1,7 @@
 package com.anezium.assistbridge.glasses;
 
+import com.anezium.assistbridge.protocol.AssistBridgeProtocol;
+
 import org.json.JSONObject;
 
 final class AssistantMessage {
@@ -18,10 +20,10 @@ final class AssistantMessage {
     }
 
     static AssistantMessage fromJson(JSONObject object) {
-        String id = object.optString("messageId", String.valueOf(System.currentTimeMillis()));
-        String text = object.optString("text", "");
-        long createdAt = object.optLong("createdAt", System.currentTimeMillis());
-        long duration = object.optLong("displayMs", defaultDisplayMs(text));
+        String id = object.optString(AssistBridgeProtocol.FIELD_MESSAGE_ID, String.valueOf(System.currentTimeMillis()));
+        String text = object.optString(AssistBridgeProtocol.FIELD_TEXT, "");
+        long createdAt = object.optLong(AssistBridgeProtocol.FIELD_CREATED_AT, System.currentTimeMillis());
+        long duration = object.optLong(AssistBridgeProtocol.FIELD_DISPLAY_MS, defaultDisplayMs(text));
         return new AssistantMessage(id, "Gemini", text, createdAt, duration);
     }
 
@@ -30,8 +32,6 @@ final class AssistantMessage {
     }
 
     static long defaultDisplayMs(String text) {
-        int chars = text == null ? 0 : text.length();
-        long duration = 6500L + (chars * 55L);
-        return Math.max(7000L, Math.min(duration, 45000L));
+        return AssistBridgeProtocol.displayDurationMs(text);
     }
 }

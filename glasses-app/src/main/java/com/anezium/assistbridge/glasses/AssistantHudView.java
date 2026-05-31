@@ -38,28 +38,30 @@ final class AssistantHudView extends LinearLayout {
     private Listener listener;
     private boolean visible;
     private int pageIndex;
-    private int visibleLineCount = 3;
+    private int visibleLineCount = 4;
     private int lastWrapWidth;
+    private int lastVisibleLineCount;
+    private float fontSizeSp = -1f;
+    private float lastFontSizeSp = -1f;
 
     AssistantHudView(Context context) {
         super(context);
         setOrientation(VERTICAL);
         setGravity(android.view.Gravity.START);
         setVisibility(INVISIBLE);
-        setPadding(dp(14), dp(12), dp(14), dp(12));
         setBackground(outline());
 
         appLabel = label(12f, ACCENT);
         titleLabel = label(18f, TEXT);
-        bodyLabel = label(17f, TEXT);
-        hintLabel = label(13f, DIM);
+        bodyLabel = label(15f, TEXT);
+        hintLabel = label(12f, DIM);
 
         titleLabel.setSingleLine(true);
         titleLabel.setEllipsize(TextUtils.TruncateAt.END);
         bodyLabel.setSingleLine(false);
-        bodyLabel.setLineSpacing(dp(2), 1.06f);
         hintLabel.setSingleLine(true);
         hintLabel.setEllipsize(TextUtils.TruncateAt.END);
+        applyFontSize(HudSettings.fontSizeSp(context));
 
         addView(appLabel, matchWrap());
         addView(titleLabel, matchWrap(3));
@@ -76,23 +78,24 @@ final class AssistantHudView extends LinearLayout {
     }
 
     void showMessage(AssistantMessage nextMessage) {
-        int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        showMessage(nextMessage, Math.max(dp(240), screenWidth - dp(20)), getResources().getDisplayMetrics().heightPixels);
+        showMessage(nextMessage, popupWidthPx(getContext()), getResources().getDisplayMetrics().heightPixels);
     }
 
     void showMessage(AssistantMessage nextMessage, int widthPx, int screenHeightPx) {
         if (nextMessage == null || nextMessage.text.isEmpty()) {
             return;
         }
+        applyFontSize(HudSettings.fontSizeSp(getContext()));
         boolean changedMessage = message == null
                 || !message.id.equals(nextMessage.id)
                 || !message.text.equals(nextMessage.text);
         message = nextMessage;
         pageIndex = 0;
         visible = true;
-        visibleLineCount = targetVisibleLines(nextMessage.text);
+        visibleLineCount = targetVisibleLines(nextMessage.text, screenHeightPx);
         if (changedMessage) {
             lastWrapWidth = 0;
+            lastVisibleLineCount = 0;
             wrappedLines.clear();
             pages.clear();
         }
@@ -103,17 +106,6 @@ final class AssistantHudView extends LinearLayout {
 
     boolean hasVisibleMessage() {
         return visible && message != null;
-    }
-
-    int recommendedHeightPx(int widthPx, int screenHeightPx) {
-        if (message == null) {
-            return dp(120);
-        }
-        rebuildPages(widthPx);
-        float lineHeight = bodyLabel.getLineHeight();
-        int wanted = dp(72) + Math.round(lineHeight * visibleLineCount);
-        int max = Math.max(dp(180), screenHeightPx - dp(48));
-        return Math.max(dp(126), Math.min(wanted, max));
     }
 
     boolean handleKey(int keyCode) {
@@ -145,6 +137,15 @@ final class AssistantHudView extends LinearLayout {
         dismissOrUnpin();
     }
 
+    void refreshSettings() {
+        applyFontSize(HudSettings.fontSizeSp(getContext()));
+        if (message != null && visible) {
+            visibleLineCount = targetVisibleLines(message.text, getResources().getDisplayMetrics().heightPixels);
+            rebuildPages(popupWidthPx(getContext()));
+            render();
+        }
+    }
+
     void scrollForward() {
         if (!visible || pages.isEmpty()) {
             return;
@@ -173,10 +174,15 @@ final class AssistantHudView extends LinearLayout {
 
     private void rebuildPages(int widthPx) {
         int wrapWidth = Math.max(1, widthPx - getPaddingLeft() - getPaddingRight() - dp(2));
-        if (wrapWidth == lastWrapWidth && !pages.isEmpty()) {
+        if (wrapWidth == lastWrapWidth
+                && visibleLineCount == lastVisibleLineCount
+                && Math.abs(fontSizeSp - lastFontSizeSp) < 0.01f
+                && !pages.isEmpty()) {
             return;
         }
         lastWrapWidth = wrapWidth;
+        lastVisibleLineCount = visibleLineCount;
+        lastFontSizeSp = fontSizeSp;
         wrappedLines.clear();
         pages.clear();
         if (message == null) {
@@ -236,13 +242,13 @@ final class AssistantHudView extends LinearLayout {
             return;
         }
         if (pages.isEmpty()) {
-            rebuildPages(getResources().getDisplayMetrics().widthPixels - dp(20));
+            rebuildPages(popupWidthPx(getContext()));
         }
 
         appLabel.setText("ASSIST BRIDGE");
         titleLabel.setText(message.source.isEmpty() ? "Gemini" : message.source);
-        bodyLabel.setMaxLines(Math.max(3, visibleLineCount));
-        bodyLabel.setMaxHeight(dp(34) * Math.max(3, visibleLineCount));
+        bodyLabel.setMaxLines(Math.max(4, visibleLineCount));
+        bodyLabel.setMaxHeight(Math.round(bodyLabel.getLineHeight() * (Math.max(4, visibleLineCount) + 0.25f)));
         bodyLabel.setText(pages.get(pageIndex));
         hintLabel.setText(hintText());
         hintLabel.setTextColor(DIM);
@@ -351,25 +357,28 @@ final class AssistantHudView extends LinearLayout {
                 || block.matches("^\\d+[.)].*");
     }
 
-    private int targetVisibleLines(String text) {
+    private int targetVisibleLines(String text, int screenHeightPx) {
         int chars = text == null ? 0 : text.length();
         int lineBreaks = text == null ? 0 : Math.max(0, text.split("\\R", -1).length - 1);
+        int cap = 22;
+        int maxByHeight = Math.max(4, (screenHeightPx - dp(118)) / Math.max(1, bodyLabel.getLineHeight()));
+        cap = Math.max(4, Math.min(cap, maxByHeight));
         if (chars > 920 || lineBreaks >= 10) {
-            return 13;
+            return cap;
         }
         if (chars > 700 || lineBreaks >= 8) {
-            return 11;
+            return Math.min(cap, 18);
         }
         if (chars > 500 || lineBreaks >= 6) {
-            return 9;
+            return Math.min(cap, 16);
         }
         if (chars > 330 || lineBreaks >= 4) {
-            return 7;
+            return Math.min(cap, 14);
         }
         if (chars > 170 || lineBreaks >= 2) {
-            return 5;
+            return Math.min(cap, 11);
         }
-        return 3;
+        return Math.min(cap, 6);
     }
 
     private String timeText() {
@@ -386,6 +395,36 @@ final class AssistantHudView extends LinearLayout {
         view.setIncludeFontPadding(false);
         view.setShadowLayer(dp(3), 0, dp(1), Color.BLACK);
         return view;
+    }
+
+    private void applyFontSize(float requestedSp) {
+        float safeSp = HudSettings.clamp(requestedSp);
+        if (Math.abs(fontSizeSp - safeSp) < 0.01f) {
+            return;
+        }
+        fontSizeSp = safeSp;
+        int horizontalPaddingDp = safeSp <= 13.5f ? 8 : safeSp <= 17.0f ? 10 : 12;
+        int verticalPaddingDp = safeSp <= 13.5f ? 8 : safeSp <= 17.0f ? 10 : 12;
+        float titleSp = safeSp + 1.5f;
+        float appSp = Math.max(9.5f, safeSp - 4.0f);
+        float hintSp = Math.max(10.0f, safeSp - 3.0f);
+
+        setPadding(dp(horizontalPaddingDp), dp(verticalPaddingDp), dp(horizontalPaddingDp), dp(verticalPaddingDp));
+        appLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, appSp);
+        titleLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, titleSp);
+        bodyLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, safeSp);
+        bodyLabel.setLineSpacing(dp(1), safeSp <= 14.0f ? 1.0f : 1.04f);
+        hintLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, hintSp);
+        lastWrapWidth = 0;
+        lastVisibleLineCount = 0;
+        lastFontSizeSp = -1f;
+        pages.clear();
+        wrappedLines.clear();
+    }
+
+    static int popupWidthPx(Context context) {
+        int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+        return Math.max(dp(context, 280), screenWidth - dp(context, 2));
     }
 
     private GradientDrawable outline() {
@@ -418,5 +457,13 @@ final class AssistantHudView extends LinearLayout {
 
     private int dp(float value) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()));
+    }
+
+    private static int dp(Context context, float value) {
+        return Math.round(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                value,
+                context.getResources().getDisplayMetrics()
+        ));
     }
 }

@@ -28,6 +28,7 @@ The phone app captures assistant reply text with Android Accessibility, sends a 
 - Relays assistant answers to Rokid glasses over CXR-L.
 - Bundles the glasses APK inside the phone APK for CXR-L install / update flows.
 - Shows a black, AR-safe popup on glasses with phosphor green accents.
+- Lets the phone choose the glasses HUD font size with a real `sp` value.
 - Keeps the popup visible until the user taps / presses OK.
 - Supports left / right Rokid swipe events for scrolling long answers.
 - Includes setup buttons for both phone and glasses accessibility services.
@@ -48,8 +49,8 @@ Assistant replies over the lock screen depend on Gemini / Google Assistant setti
 
 Download the APKs from the latest GitHub release:
 
-- `AssistBridge-phone-v0.2.0.apk`
-- `AssistBridge-glasses-v0.2.0.apk`
+- `AssistBridge-phone-v0.3.0.apk`
+- `AssistBridge-glasses-v0.3.0.apk`
 
 Typical setup:
 
@@ -63,8 +64,8 @@ Typical setup:
 Manual ADB install:
 
 ```powershell
-adb install -r AssistBridge-phone-v0.2.0.apk
-adb -s <glasses-serial> install -r AssistBridge-glasses-v0.2.0.apk
+adb install -r AssistBridge-phone-v0.3.0.apk
+adb -s <glasses-serial> install -r AssistBridge-glasses-v0.3.0.apk
 ```
 
 The phone APK also contains `assets/assist-bridge-glasses.apk`, so the phone relay can install or update the glasses app through the CXR-L path when authorized.
@@ -74,6 +75,10 @@ The phone APK also contains `assets/assist-bridge-glasses.apk`, so the phone rel
 - Tap / OK: dismiss the popup.
 - Back: dismiss the popup.
 - Swipe left / right: scroll long answers.
+
+## Phone Controls
+
+- Font size: adjust the glasses HUD text size in `sp`; the value is sent to the glasses and stored there.
 
 ## Build From Source
 
