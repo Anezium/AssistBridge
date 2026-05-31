@@ -1,0 +1,41 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/assistbridge_icon_bitmap"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/assistbridge_icon_bitmap"
+        android:resizeableActivity="false"
+        android:supportsRtl="true"
+        android:theme="@style/GlassesTheme">
+
+        <service
+            android:name=".RelayService"
+            android:exported="false" />
+
+        <service
+            android:name=".AssistBridgeAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/assistbridge_accessibility_service" />
+        </service>
+
+        <activity
+            android:name=".MainActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

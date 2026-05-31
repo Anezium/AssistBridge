@@ -1,0 +1,55 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <queries>
+        <package android:name="com.google.android.apps.bard" />
+        <package android:name="com.google.android.googlequicksearchbox" />
+        <package android:name="com.rokid.sprite.global.aiapp" />
+        <intent>
+            <action android:name="com.rokid.sprite.aiapp.externalapp.AUTHORIZATION" />
+        </intent>
+        <intent>
+            <action android:name="com.rokid.sprite.aiapp.externalapp.MEDIA_STREAM_SERVICE" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/assistbridge_icon_bitmap"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/assistbridge_icon_bitmap"
+        android:resizeableActivity="true"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".DebugRelayReceiver"
+            android:exported="${debugRelayExported}">
+            <intent-filter>
+                <action android:name="com.anezium.assistbridge.phone.DEBUG_SEND" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".GeminiAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/gemini_accessibility_service" />
+        </service>
+    </application>
+</manifest>

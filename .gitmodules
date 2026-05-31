@@ -1,0 +1,3 @@
+[submodule "CxrGlobal"]
+	path = CxrGlobal
+	url = https://github.com/Anezium/CxrGlobal.git
