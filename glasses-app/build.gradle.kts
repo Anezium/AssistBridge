@@ -10,8 +10,8 @@ android {
         applicationId = "com.anezium.assistbridge.glasses"
         minSdk = 31
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.3.1"
     }
 
     buildTypes {
@@ -29,5 +29,5 @@ android {
 
 dependencies {
     implementation(project(":protocol"))
-    implementation("com.rokid.cxr:cxr-service-bridge:1.0-20260212.103714-88")
+    implementation("com.rokid.cxr:cxr-service-bridge:1.0-20260522.063600-105")
 }

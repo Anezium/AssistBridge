@@ -162,6 +162,10 @@ final class GlassesRelayBridge {
         }
 
         @Override
+        public void onAudioNoise(float noise) {
+        }
+
+        @Override
         public void onRokidAccountChanged(String account) {
         }
     };
