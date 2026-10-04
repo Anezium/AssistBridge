@@ -102,3 +102,9 @@ AssistBridge does not call a cloud API and does not run its own network backend.
 Captured assistant text is kept locally for the current app state / last capture display. Release builds redact captured answer previews from logcat.
 
 Android Accessibility capture is best-effort. Google can change Gemini / Assistant UI structure, text labels, or lock-screen behavior, so capture filters may need updates over time.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+
+Contributions are accepted under the same license (Apache-2.0, section 5) — no CLA required.
